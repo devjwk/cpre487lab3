@@ -24,6 +24,7 @@ entity staged_mac is
   generic(
       -- Parameters of mac
       C_DATA_WIDTH : integer := 8
+	  -- Based on quantization part, it can be described N_i,N_f.
     );
 	port (
         ACLK	: in	std_logic;
