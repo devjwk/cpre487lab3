@@ -6,9 +6,7 @@
 #include "xllfifo_hw.h"
 #include <xtime_l.h>
 
-// Packs i8 A (upper byte) and i8 B (lower byte) into one AXI-Stream beat per
-// pair, sends one group (TLF is set to the byte count after the last word,
-// generating TLAST), waits for and returns the 32-bit signed MAC result.
+// One group: A in the upper byte, B in the lower byte; returns the 32-bit result
 i32 run_mac_group(const i8* A, const i8* B, int count) {
     for (int i = 0; i < count; i++) {
         ui16 packed = (static_cast<ui16>(static_cast<ui8>(A[i])) << 8) | static_cast<ui8>(B[i]);
@@ -22,11 +20,7 @@ i32 run_mac_group(const i8* A, const i8* B, int count) {
 }
 #endif
 
-// Software reference model: plain int8 multiply-accumulate, no bias/saturation.
-// Mirrors what staged_mac computes on hardware. NOTE: SD_AXIS_TUSER (bias load)
-// cannot be driven through this AXI FIFO IP (Enable Transmit Control is
-// unchecked), so the bias path is verified only in simulation
-// (staged_mac_tb.tcl / piped_mac_tb.tcl), never through this SW/HW comparison.
+// TUSER (bias) cannot be driven through this AXI FIFO, so bias is only tested in simulation
 i32 software_mac(const i8* A, const i8* B, int count) {
     i32 sum = 0;
     for (int i = 0; i < count; i++) {
@@ -56,10 +50,7 @@ void run_tests() {
     // 2. Multi-beat accumulation
     { i8 A[] = {1, 2, 3, 4}; i8 B[] = {1, 0, 0, 1}; run_case("Test2_MultiOp", A, B, 4); }
 
-    // 3/4. Two independent groups issued sequentially — verifies the
-    // accumulator resets between groups instead of carrying the previous
-    // group's total forward (the exact bug staged_mac's own VHDL testbench
-    // caught during development).
+    // 3/4. Two groups in a row: the accumulator must reset between them
     { i8 A[] = {2, 3}; i8 B[] = {3, 2}; run_case("Test3_BackToBack1", A, B, 2); }
     { i8 A[] = {1};    i8 B[] = {9};   run_case("Test4_BackToBack2", A, B, 1); }
 
@@ -77,10 +68,7 @@ void run_tests() {
 
     std::cout << g_pass << "/" << (g_pass + g_fail) << " tests passed" << std::endl;
 
-    // Performance: measure wall-clock time for a conv1-scale (N=75) transfer
-    // and derive an effective MMAC/s figure to compare against the synthesis
-    // throughput estimates in the report (staged_mac: 236.9 MMAC/s,
-    // piped_mac: 222.8 MMAC/s).
+    // Performance: time one N=75 group
     {
         XTime t0, t1;
         XTime_GetTime(&t0);
@@ -92,18 +80,17 @@ void run_tests() {
                    << mmac_per_s << " MMAC/s)" << std::endl;
     }
 
-    // Team number (06): one group whose result is 6. This is the transaction the ILA capture in
-    // the report triggers on (MO_AXIS_TDATA == 6). It is not counted among the 8 tests above.
+    // Team number 06: ILA trigger (MO_AXIS_TDATA == 6), not one of the 8 tests
     {
         i8 A[] = {1}; i8 B[] = {6};
         std::cout << "ILA_TeamNumber: expected=6 got=" << run_mac_group(A, B, 1) << std::endl;
 #ifdef ILA_LOOP
-        // Build with -DILA_LOOP to keep resending the group so the ILA can be armed at any time
+        // -DILA_LOOP: resend forever for the ILA
         while (true) { run_mac_group(A, B, 1); }
 #endif
     }
 #else
-    // No hardware on the host: self-check the software reference model only.
+    // Host build: check the software model only
     struct Case { i8 A[4]; i8 B[4]; int n; i32 expected; };
     Case cases[] = {
         {{5, 0, 0, 0},        {6, 0, 0, 0},        1, 30},

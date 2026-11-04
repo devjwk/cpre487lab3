@@ -1,16 +1,12 @@
 #!/bin/bash
-# Assemble submission/ in the layout the Lab 3 handout asks for (section 7.2):
-#   lab3_report_06.pdf
-#   lab3_src_06/sw, lab3_src_06/hw/staged_mac, lab3_src_06/hw/piped_mac   (+ lab3_src_06.zip)
-# Only files tracked by git are copied, so Vivado/Vitis build output is left out.
-# Usage: ./make_submission.sh   (run from the repository root)
+# Builds submission/ (handout section 7.2) from git-tracked files
 set -e
 
 OUT=submission/lab3_src_06
 rm -rf "$OUT" submission/lab3_src_06.zip
 mkdir -p "$OUT/sw" "$OUT/hw"
 
-copy_tracked() {  # copy_tracked <repo folder> <destination>
+copy_tracked() {
     git ls-files "$1" | while read -r f; do
         mkdir -p "$2/$(dirname "${f#$1/}")"
         cp "$f" "$2/${f#$1/}"
