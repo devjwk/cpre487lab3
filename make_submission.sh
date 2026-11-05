@@ -17,6 +17,6 @@ copy_tracked staged_mac "$OUT/hw/staged_mac"
 copy_tracked piped_mac "$OUT/hw/piped_mac"
 cp report/lab3_report_06.pdf submission/lab3_report_06.pdf
 
-(cd submission && zip -qr -X lab3_src_06.zip lab3_src_06)
+(cd "$OUT" && zip -qr -X ../lab3_src_06.zip sw hw)
 echo "sw: $(find "$OUT/sw" -type f | wc -l | tr -d ' ') files, staged_mac: $(find "$OUT/hw/staged_mac" -type f | wc -l | tr -d ' '), piped_mac: $(find "$OUT/hw/piped_mac" -type f | wc -l | tr -d ' ')"
 ls -la submission | awk 'NR>3 {print $5, $9}'
